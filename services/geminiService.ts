@@ -1,8 +1,10 @@
+import OpenAI from "openai";
+import { Decision, AIAnalysis, InputType } from "../types";
 
-import { GoogleGenAI, Type } from "@google/genai";
-import { Decision, AIAnalysis, InputItem, InputType } from "../types";
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const openai = new OpenAI({
+  apiKey: process.env.API_KEY,
+  dangerouslyAllowBrowser: true // Only for development - move to backend in production
+});
 
 export interface ExtractionResult {
   document_summary: string;
@@ -22,11 +24,11 @@ export const extractAtomicInputs = async (
   rawText: string
 ): Promise<ExtractionResult> => {
   const prompt = `
-    You are an AI assistant inside “Signal”, a decision sensemaking platform.
+    You are an AI assistant inside "Signal", a decision sensemaking platform.
     Below is raw text extracted from a file named: ${fileName}.
 
     TASK:
-    Convert the provided extracted document text into a set of short, atomic “Decision Inputs” that can be stored individually in the app. The goal is to break long documents into smaller inputs like the ones a user would manually add (Note, Evidence, Concern, Assumption, Question, Link).
+    Convert the provided extracted document text into a set of short, atomic "Decision Inputs" that can be stored individually in the app. The goal is to break long documents into smaller inputs like the ones a user would manually add (Note, Evidence, Concern, Assumption, Question, Link).
 
     HARD REQUIREMENTS:
     1) Keep each input short:
@@ -55,38 +57,32 @@ export const extractAtomicInputs = async (
 
     RAW TEXT:
     ${rawText.substring(0, 15000)}
+
+    Return your response as a JSON object with this exact structure:
+    {
+      "document_summary": "string",
+      "inputs": [
+        {
+          "type": "note|concern|evidence|assumption|question|link",
+          "text": "string (max 240 chars)",
+          "source_ref": "string",
+          "confidence": "high|medium|low"
+        }
+      ]
+    }
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          document_summary: { type: Type.STRING },
-          inputs: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                type: { type: Type.STRING, enum: ['note', 'concern', 'evidence', 'assumption', 'question', 'link'] },
-                text: { type: Type.STRING },
-                source_ref: { type: Type.STRING },
-                confidence: { type: Type.STRING, enum: ['high', 'medium', 'low'] }
-              },
-              required: ["type", "text", "source_ref", "confidence"]
-            }
-          }
-        },
-        required: ["document_summary", "inputs"]
-      }
-    }
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [{ role: "user", content: prompt }],
+    response_format: { type: "json_object" },
+    temperature: 0.7,
   });
 
   try {
-    return JSON.parse(response.text.trim());
+    const content = response.choices[0].message.content;
+    if (!content) throw new Error("No response from OpenAI");
+    return JSON.parse(content);
   } catch (e) {
     console.error("Extraction Error:", e);
     return { document_summary: "Error parsing summary", inputs: [] };
@@ -126,72 +122,59 @@ export const analyzeDecision = async (decision: Decision): Promise<AIAnalysis> =
     6) FUNDAMENTAL TENSIONS
     7) STRATEGIC STANCES
     8) FILE EXTRACTIONS (Summary list of evidence found)
+
+    Return your response as a JSON object with this exact structure:
+    {
+      "situationSummary": "string",
+      "whyHard": "string",
+      "forces": ["string"],
+      "constraints": ["string"],
+      "hiddenAssumptions": ["string"],
+      "unknowns": ["string"],
+      "tensions": [
+        {
+          "nameX": "string",
+          "nameY": "string",
+          "reasonX": "string",
+          "reasonY": "string",
+          "gainIfX": "string",
+          "gainIfY": "string",
+          "lossIfX": "string",
+          "lossIfY": "string"
+        }
+      ],
+      "options": [
+        {
+          "name": "string",
+          "description": "string",
+          "tradeoffs": "string",
+          "commitmentDo": ["string"],
+          "commitmentDont": ["string"],
+          "futureImpact": "string"
+        }
+      ],
+      "fileExtractions": [
+        {
+          "type": "Evidence|Assumption|Concern|Note|Question",
+          "statement": "string",
+          "source_citation": "string",
+          "confidence": "High|Medium|Low"
+        }
+      ]
+    }
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-pro-preview",
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          situationSummary: { type: Type.STRING },
-          whyHard: { type: Type.STRING },
-          forces: { type: Type.ARRAY, items: { type: Type.STRING } },
-          constraints: { type: Type.ARRAY, items: { type: Type.STRING } },
-          hiddenAssumptions: { type: Type.ARRAY, items: { type: Type.STRING } },
-          unknowns: { type: Type.ARRAY, items: { type: Type.STRING } },
-          tensions: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                nameX: { type: Type.STRING },
-                nameY: { type: Type.STRING },
-                reasonX: { type: Type.STRING },
-                reasonY: { type: Type.STRING },
-                gainIfX: { type: Type.STRING },
-                gainIfY: { type: Type.STRING },
-                lossIfX: { type: Type.STRING },
-                lossIfY: { type: Type.STRING }
-              }
-            }
-          },
-          options: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                name: { type: Type.STRING },
-                description: { type: Type.STRING },
-                tradeoffs: { type: Type.STRING },
-                commitmentDo: { type: Type.ARRAY, items: { type: Type.STRING } },
-                commitmentDont: { type: Type.ARRAY, items: { type: Type.STRING } },
-                futureImpact: { type: Type.STRING }
-              }
-            }
-          },
-          fileExtractions: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                type: { type: Type.STRING, enum: ['Evidence', 'Assumption', 'Concern', 'Note', 'Question'] },
-                statement: { type: Type.STRING },
-                source_citation: { type: Type.STRING },
-                confidence: { type: Type.STRING, enum: ['High', 'Medium', 'Low'] }
-              }
-            }
-          }
-        },
-        required: ["situationSummary", "whyHard", "forces", "constraints", "hiddenAssumptions", "unknowns", "tensions", "options", "fileExtractions"]
-      }
-    }
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [{ role: "user", content: prompt }],
+    response_format: { type: "json_object" },
+    temperature: 0.7,
   });
 
   try {
-    return JSON.parse(response.text.trim());
+    const content = response.choices[0].message.content;
+    if (!content) throw new Error("No response from OpenAI");
+    return JSON.parse(content);
   } catch (e) {
     console.error("Parse Error:", e);
     throw new Error("Signal failed to generate a valid analysis.");

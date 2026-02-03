@@ -144,7 +144,7 @@ const DecisionDetail: React.FC<DecisionDetailProps> = ({ decisions, onUpdateDeci
       {error && (
         <div className="bg-rose-50 border border-rose-100 text-rose-600 p-4 rounded-xl mb-8 flex items-center gap-3">
           <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          <span className="text-sm font-medium">{error}</span>
+          <span className="text-sm font-medium">🖕: {error}</span>
         </div>
       )}
 
