@@ -1,0 +1,5 @@
+{
+  "name": "Signal",
+  "description": "An AI-powered decision support platform for product teams that helps surface hidden assumptions, trade-offs, and tensions without making the choice for you. Supports structured file extraction and traceability.",
+  "requestFramePermissions": []
+}
