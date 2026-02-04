@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useAuth0 } from '@auth0/auth0-react';
 import { InputItem, FileItem, InputType } from '../types';
 import FileReviewModal from './FileReviewModal';
 import { extractAtomicInputs, ExtractionResult } from '../services/geminiService';
@@ -17,6 +18,7 @@ interface InputListProps {
 const UNDO_WINDOW = 10000;
 
 const InputList: React.FC<InputListProps> = ({ inputs, files = [], onAddInput, onAddFile, onAddBatchInputs, onDeleteInput, onDeleteFile }) => {
+  const { getAccessTokenSilently } = useAuth0();
   const [activeMode, setActiveMode] = useState<'typed' | 'file'>('typed');
   const [content, setContent] = useState('');
   const [type, setType] = useState<InputType>('note');
@@ -81,8 +83,8 @@ const InputList: React.FC<InputListProps> = ({ inputs, files = [], onAddInput, o
       if (!extractedText.trim()) throw new Error("Empty document");
 
       setExtractionStatus('Generating atomic inputs...');
-      const extractionResult = await extractAtomicInputs(file.name, extractedText);
-      
+      const extractionResult = await extractAtomicInputs(file.name, extractedText, getAccessTokenSilently);
+
       setPendingReview({
         fileName: file.name,
         text: extractedText,

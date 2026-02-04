@@ -17,13 +17,16 @@ export interface ExtractionResult {
  */
 export const extractAtomicInputs = async (
   fileName: string, 
-  rawText: string
+  rawText: string,
+  getAccessToken: () => Promise<string>
 ): Promise<ExtractionResult> => {
   try {
+    const token = await getAccessToken();
     const response = await fetch(`${API_BASE_URL}/extract`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify({ fileName, rawText }),
     });
@@ -42,12 +45,17 @@ export const extractAtomicInputs = async (
 /**
  * Main Analysis Logic
  */
-export const analyzeDecision = async (decision: Decision): Promise<AIAnalysis> => {
+export const analyzeDecision = async (
+  decision: Decision,
+  getAccessToken: () => Promise<string>
+): Promise<AIAnalysis> => {
   try {
+    const token = await getAccessToken();
     const response = await fetch(`${API_BASE_URL}/analyze`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify({ decision }),
     });

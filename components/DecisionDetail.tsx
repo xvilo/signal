@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useAuth0 } from '@auth0/auth0-react';
 import { Decision, InputItem, FileItem, AIAnalysis } from '../types';
 import InputList from './InputList';
 import AnalysisView from './AnalysisView';
@@ -16,6 +17,7 @@ interface DecisionDetailProps {
 const DecisionDetail: React.FC<DecisionDetailProps> = ({ decisions, onUpdateDecision }) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { getAccessTokenSilently } = useAuth0();
   const [activeTab, setActiveTab] = useState<'inputs' | 'analysis' | 'tensions' | 'options'>('inputs');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +37,7 @@ const DecisionDetail: React.FC<DecisionDetailProps> = ({ decisions, onUpdateDeci
     setIsAnalyzing(true);
     setError(null);
     try {
-      const result = await analyzeDecision(d);
+      const result = await analyzeDecision(d, getAccessTokenSilently);
       onUpdateDecision({
         ...d,
         aiAnalysis: result,
@@ -48,7 +50,7 @@ const DecisionDetail: React.FC<DecisionDetailProps> = ({ decisions, onUpdateDeci
     } finally {
       setIsAnalyzing(false);
     }
-  }, [decision, onUpdateDecision]);
+  }, [decision, onUpdateDecision, getAccessTokenSilently]);
 
   const handleItemDeleted = useCallback((timestamp: number) => {
     if (decision?.lastAnalysisUpdate && timestamp < decision.lastAnalysisUpdate) {
